@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import * as url from 'url';
+// import * as url from 'url';
 
 import {LanguageService} from '@angular/language-service';
 
@@ -98,29 +98,29 @@ class ProjectLoggerImpl implements ProjectLogger {
   }
 }
 
-declare function escape(text: string): string;
-declare function unescape(text: string): string;
+// declare function escape(text: string): string;
+// declare function unescape(text: string): string;
 
-function uriToFileName(uri: string): string {
-  const parsedUrl = url.parse(uri);
-  switch (parsedUrl.protocol) {
-  case 'file:':
-  case 'private:':
-    let result = unescape(parsedUrl.path);
-    if (result.match(/^\/\w:/)) {
-      result = result.substr(1);
-    }
-    return result;
-  }
-}
+// export function uriToFileName(uri: string): string {
+//   const parsedUrl = url.parse(uri);
+//   switch (parsedUrl.protocol) {
+//   case 'file:':
+//   case 'private:':
+//     let result = unescape(parsedUrl.path);
+//     if (result.match(/^\/\w:/)) {
+//       result = result.substr(1);
+//     }
+//     return result;
+//   }
+// }
 
-const fileProtocol = "file://";
-export function fileNameToUri(fileName: string): string {
-  if (fileName.match(/^\w:/)) {
-    fileName = '/' + fileName;
-  }
-  return fileProtocol + escape(fileName);
-}
+// const fileProtocol = "file://";
+// export function fileNameToUri(fileName: string): string {
+//   if (fileName.match(/^\w:/)) {
+//     fileName = '/' + fileName;
+//   }
+//   return fileProtocol + escape(fileName);
+// }
 
 export interface NgServiceInfo {
   fileName?: string;
@@ -161,62 +161,7 @@ export class TextDocuments {
     // Connect the logger to the connection
     this.logger.connect(connection.console);
 
-    connection.onDidOpenTextDocument(event => this.logErrors(() => {
-      // An interersting text document was opened in the client. Inform TypeScirpt's project services about it.
-      const file = uriToFileName(event.textDocument.uri);
-      if (file) {
-        const { configFileName, configFileErrors } = this.projectService.openClientFile(file, event.textDocument.text);
-        if (configFileErrors && configFileErrors.length) {
-          // TODO: Report errors
-          this.logger.msg(`Config errors encountered and need to be reported: ${configFileErrors.length}\n  ${configFileErrors.map(error => error.messageText).join('\n  ')}`);
-        }
-        this.languageIds.set(event.textDocument.uri, event.textDocument.languageId);
-      }
-    }));
 
-    connection.onDidCloseTextDocument(event => this.logErrors(() => {
-      const file = uriToFileName(event.textDocument.uri);
-      if (file) {
-        this.projectService.closeClientFile(file);
-      }
-    }));
-
-    connection.onDidChangeTextDocument(event => this.logErrors(() => {
-      const file = uriToFileName(event.textDocument.uri);
-      if (file) {
-        const positions = this.projectService.lineOffsetsToPositions(file,
-          ([] as {line: number, col: number}[]).concat(...event.contentChanges.map(change => [{
-            // VSCode is 0 based, editor services is 1 based.
-            line: change.range.start.line + 1,
-            col: change.range.start.character + 1
-          }, {
-            line: change.range.end.line + 1,
-            col: change.range.end.character + 1
-          }])));
-        if (positions) {
-          this.changeNumber++;
-          const mappedChanges = event.contentChanges.map((change, i) => {
-            const start = positions[i * 2];
-            const end = positions[i * 2 + 1];
-            return {start, end, insertText: change.text};
-          });
-          this.projectService.clientFileChanges(file, mappedChanges);
-          this.changeNumber++;
-        }
-      }
-    }));
-
-    connection.onDidSaveTextDocument(event => this.logErrors(() => {
-      // If the file is saved, force the content to be reloaded from disk as the content might have changed on save.
-      this.changeNumber++;
-      const file = uriToFileName(event.textDocument.uri);
-      if (file) {
-        const savedContent = this.host.readFile(file);
-        this.projectService.closeClientFile(file);
-        this.projectService.openClientFile(file, savedContent);
-        this.changeNumber++;
-      }
-    }));
   }
 
   public offsetsToPositions(document: TextDocumentIdentifier, offsets: number[]): Position[] {

@@ -1,23 +1,51 @@
 import * as path from 'path';
-
+import * as fs from 'fs';
 import { workspace, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, RevealOutputChannelOn } from 'vscode-languageclient';
 
 export function activate(context: ExtensionContext) {
+	const logFile = path.join(context.logPath, 'nglangsvc.log');
+	fs.mkdirSync(context.logPath);
+	fs.closeSync(fs.openSync(logFile, 'w'));
+
   // The server is implemented in node
-  let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
-  // The debug options for the server
-  let debugOptions = { execArgv: ["--nolazy", "--debug=6009"] };
+  const serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
 
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
-  let serverOptions: ServerOptions = {
-    run : { module: serverModule, transport: TransportKind.ipc },
-    debug: { module: serverModule, transport: TransportKind.ipc /* *, options: debugOptions /* */ }
+  const serverOptions: ServerOptions = {
+    run : {
+			module: serverModule,
+			transport: TransportKind.ipc,
+			args: ['--logFile', logFile],
+			options: {
+				env: {
+					// Force TypeScript to use the non-polling version of the file watchers.
+					TSC_NONPOLLING_WATCHER: true,
+				},
+			},
+		},
+    debug: {	// debug is used when running in vscode development mode
+			module: serverModule,
+			transport: TransportKind.ipc,
+			args: ['--logFile', logFile],
+			options: {
+				env: {
+					// Force TypeScript to use the non-polling version of the file watchers.
+					TSC_NONPOLLING_WATCHER: true,
+					NG_DEBUG: true,
+				},
+				execArgv : [
+					// '--nolazy',
+					// '--debug=6009',
+					'--inspect=6009',
+				],
+			},
+			/* *, options: debugOptions /* */ }
   }
 
   // Options to control the language client
-  let clientOptions: LanguageClientOptions = {
+  const clientOptions: LanguageClientOptions = {
     // Register the server for Angular templates
     documentSelector: ['ng-template', 'html', 'typescript'],
 
@@ -25,7 +53,7 @@ export function activate(context: ExtensionContext) {
     synchronize: {
       fileEvents: [
         workspace.createFileSystemWatcher('**/tsconfig.json'),
-        workspace.createFileSystemWatcher('**/*.ts')
+        workspace.createFileSystemWatcher('**/*.ts'),
       ]
     },
 
@@ -34,7 +62,7 @@ export function activate(context: ExtensionContext) {
   }
 
   // Create the language client and start the client.
-  let disposable = new LanguageClient('Angular Language Service', serverOptions, clientOptions, true).start();
+  const disposable = new LanguageClient('Angular Language Service', serverOptions, clientOptions).start();
 
   // Push the disposable to the context's subscriptions so that the
   // client can be deactivated on extension deactivation
