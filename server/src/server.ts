@@ -236,28 +236,35 @@ connection.onDefinition((params: lsp.TextDocumentPositionParams) => {
 	}
 	const scriptInfo = tsProjSvc.getScriptInfo(uri.path);
 	if (!scriptInfo) {
+		connection.console.log(`Script info not found for ${uri.path}`);
 		return;
 	}
+	connection.console.log(scriptInfo.containingProjects.map(p => p.projectName).join(", "));
+
 	const {fileName} = scriptInfo;
-	const project = tsProjSvc.getDefaultProjectForFile(fileName, true /* ensureProject */);
+	let project = tsProjSvc.getDefaultProjectForFile(fileName, true /* ensureProject */);
+
 	if (!project) {
 		return;
 	}
 
-	if (uri.path.endsWith('.html') && project.projectKind === tss.server.ProjectKind.Inferred) {
-		const result = tsProjSvc.openClientFile(uri.path);
-		if (!result || !result.configFileName) {
-			return;
-		}
-		const project = tsProjSvc.findProject(result.configFileName);
-		if (!project) {
-			return;
-		}
-		scriptInfo.detachAllProjects();
-		scriptInfo.attachToProject(project);
-	}
 
-	connection.console.log(`${project.projectName} ${project.projectKind}`);
+	// if (!project || project.projectKind !== tss.server.ProjectKind.Configured) {
+	// 	project = projSvc.getProjectForTemplate(uri.path);
+	// 	if (!project) {
+	// 		connection.console.log(`${fileName} does not belong in any project`);
+	// 		return;
+	// 	}
+	// 	scriptInfo.detachAllProjects();
+	// 	scriptInfo.attachToProject(project);
+
+	// 	if (!project.containsScriptInfo(scriptInfo)) {
+	// 		connection.console.log(`Project does not contain ${scriptInfo.fileName}`);
+	// 		project.addRoot(scriptInfo);
+	// 		project.markAsDirty();
+	// 	}
+	// }
+
 	const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
 	const tsLangSvc = project.getLanguageService();
 	const definition = tsLangSvc.getDefinitionAndBoundSpan(fileName, offset);
