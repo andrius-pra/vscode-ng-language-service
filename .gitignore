@@ -1,8 +1,9 @@
-client/node_modules/
-client/out/
-client/server/
-server/node_modules/
-dist/
+node_modules
+client/node_modules
+client/out
+server/node_modules
+server/out
+dist
 tests/project/**/yarn.lock
 **/.idea/
 .DS_Store

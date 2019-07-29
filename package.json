@@ -1,0 +1,59 @@
+{
+  "name": "ng-template",
+  "displayName": "Angular Language Service",
+  "description": "Editor services for Angular templates",
+  "version": "0.801.1",
+  "publisher": "Angular",
+  "license": "MIT",
+  "icon": "angular.png",
+  "keywords": [
+    "Angular",
+    "multi-root ready"
+  ],
+  "engines": {
+    "vscode": "^1.30.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:ng-template",
+    "onLanguage:html",
+    "onLanguage:typescript"
+  ],
+  "main": "./client/out/extension",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ng-template",
+        "aliases": [
+          "Angular Template",
+          "ng",
+          "ng-html"
+        ],
+        "extensions": [
+          ".ng",
+          ".ngml",
+          ".ng.html"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "scripts": {
+		"vscode:prepublish": "cd client && npm run update-vscode && cd .. && npm run compile",
+		"compile": "tsc -b",
+		"watch": "tsc -b -w",
+		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+		"test": "sh ./scripts/e2e.sh"
+	},
+  "devDependencies": {
+    "@types/node": "^10.14.13",
+    "typescript": "~3.4.2",
+    "vsce": "^1.66.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/angular/vscode-ng-language-service"
+  }
+}

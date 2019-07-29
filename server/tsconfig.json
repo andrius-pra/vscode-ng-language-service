@@ -8,12 +8,11 @@
 		"outDir": "out",
 		"rootDir": "src"
   },
-  "files": [
+	"include": [
 		"src/logger.ts",
 		"src/project_service.ts",
     "src/server.ts",
     "src/server_host.ts"
-  ]
-	// "include": ["src"],
+	],
 	// "exclude": ["node_modules", ".vscode-test", "src/editorServices.ts"]
 }
