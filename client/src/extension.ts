@@ -5,8 +5,10 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, Re
 
 export function activate(context: ExtensionContext) {
 	const logFile = path.join(context.logPath, 'nglangsvc.log');
-	fs.mkdirSync(context.logPath);
-	fs.closeSync(fs.openSync(logFile, 'w'));
+	if (!fs.existsSync(logFile)) {
+		fs.mkdirSync(context.logPath);
+		fs.closeSync(fs.openSync(logFile, 'w'));
+	}
 
   // The server is implemented in node
   const serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
@@ -28,7 +30,10 @@ export function activate(context: ExtensionContext) {
     debug: {	// debug is used when running in vscode development mode
 			module: serverModule,
 			transport: TransportKind.ipc,
-			args: ['--logFile', logFile],
+			args: [
+				'--logFile', logFile,
+				'--logVerbosity', 'verbose',
+			],
 			options: {
 				env: {
 					// Force TypeScript to use the non-polling version of the file watchers.
@@ -37,7 +42,6 @@ export function activate(context: ExtensionContext) {
 				},
 				execArgv : [
 					// '--nolazy',
-					// '--debug=6009',
 					'--inspect=6009',
 				],
 			},

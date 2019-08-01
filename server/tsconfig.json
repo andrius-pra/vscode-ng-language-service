@@ -9,6 +9,7 @@
 		"rootDir": "src"
   },
 	"include": [
+		"src/completion.ts",
 		"src/logger.ts",
 		"src/project_service.ts",
     "src/server.ts",

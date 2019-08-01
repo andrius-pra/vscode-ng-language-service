@@ -6,14 +6,14 @@
 
 import * as lsp from 'vscode-languageserver';
 import * as tss from 'typescript/lib/tsserverlibrary';
-import {Logger} from './logger';
+import {createLogger} from './logger';
 import {ServerHost} from './server_host';
 import {ProjectService} from './project_service';
 import {uriToFilePath, filePathToUri} from './utils';
+import {tsCompletionEntryToLspCompletionItem} from './completion';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 const connection: lsp.IConnection = lsp.createConnection();
-
 const tsProjSvcHost = new ServerHost(tss.sys);
 
 const options = new Map<string, string>();
@@ -22,21 +22,14 @@ for (let i = 0; i < process.argv.length; ++i) {
 	if (argv === '--logFile') {
 		options.set('logFile', process.argv[i + 1]);
 	}
+	if (argv === '--logVerbosity') {
+		options.set('logVerbosity', process.argv[i + 1]);
+	}
 }
 
-// connection.console logs to vscode development console. DO NOT write verbose
-// logs to the console!
-const logFile = options.get('logFile')!;
-// const logFile = '/usr/local/google/home/kyliau/Desktop/nglangsvc.log';
-connection.console.info(`Log file: ${logFile}`);
-
 // logger logs to file. OK to emit verbose entries.
-const logger = new Logger(
-	logFile,
-	false, 	// traceToConsole
-	tss.server.LogLevel.verbose,
-);
-
+const logger = createLogger(options);
+connection.console.info(`Log file: ${logger.getLogFileName()}`);
 // Our ProjectService is just a thin wrapper around TS's ProjectService
 const projSvc = new ProjectService(tsProjSvcHost, logger, connection.console);
 const {tsProjSvc} = projSvc;
@@ -252,48 +245,7 @@ connection.onCompletion((params: lsp.CompletionParams) => {
 	if (!completions || !completions.entries.length) {
 		return;
 	}
-
-	return completions.entries.map((entry) => {
-		return {
-			label: entry.name,
-			kind: compiletionKindToCompletionItemKind(entry.kind),
-			detail: entry.kind,
-			sortText: entry.sortText,
-			textEdit: {
-				range: lsp.Range.create(position, position),
-				newText: entry.name,
-			},
-		};
-	});
-
-	// kind is actually tss.ScriptElementKind
-	function compiletionKindToCompletionItemKind(kind: string): lsp.CompletionItemKind {
-		switch (kind) {
-		case 'attribute': return lsp.CompletionItemKind.Property;
-		case 'html attribute': return lsp.CompletionItemKind.Property;
-		case 'component': return lsp.CompletionItemKind.Class;
-		case 'element': return lsp.CompletionItemKind.Class;
-		case 'entity': return lsp.CompletionItemKind.Text;
-		case 'key': return lsp.CompletionItemKind.Class;
-		case 'method': return lsp.CompletionItemKind.Method;
-		case 'pipe': return lsp.CompletionItemKind.Function;
-		case 'property': return lsp.CompletionItemKind.Property;
-		case 'type': return lsp.CompletionItemKind.Interface;
-		case 'reference': return lsp.CompletionItemKind.Variable;
-		case 'variable': return lsp.CompletionItemKind.Variable;
-		}
-		return lsp.CompletionItemKind.Text;
-	}
-
-	// function insertTextOf(completion: Completion): string {
-	// 	switch (completion.kind) {
-	// 		case 'attribute':
-	// 		case 'html attribute':
-	// 			return `${completion.name}=`;
-	// 	}
-	// 	return completion.name;
-	// }
-
+	return completions.entries.map((e) => tsCompletionEntryToLspCompletionItem(e, position));
 });
 
 // Listen on the connection

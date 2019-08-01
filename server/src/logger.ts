@@ -1,5 +1,6 @@
-import * as tss from 'typescript/lib/tsserverlibrary';
+import * as path from 'path';
 import * as fs from 'fs';
+import * as tss from 'typescript/lib/tsserverlibrary';
 
 function noop(_?: {} | null | undefined): void { } // tslint:disable-line no-empty
 
@@ -7,6 +8,28 @@ function nowString() {
 	// E.g. "12:34:56.789"
 	const d = new Date();
 	return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}.${d.getMilliseconds()}`;
+}
+
+export function createLogger(options: Map<string, string>) {
+	const logFile = options.get('logFile') || path.join(fs.mkdtempSync('ng_'), 'ngserver.log');
+	const logVerbosity = options.get('logVerbosity') || 'normal';
+	let logLevel: tss.server.LogLevel;
+	switch (logVerbosity) {
+		case 'terse':
+			logLevel = tss.server.LogLevel.terse;
+			break;
+		case 'requestTime':
+			logLevel = tss.server.LogLevel.requestTime;
+			break;
+		case 'verbose':
+			logLevel = tss.server.LogLevel.verbose;
+			break;
+		case 'normal':
+		default:
+			logLevel = tss.server.LogLevel.terse;
+			break;
+	}
+	return new Logger(logFile, false /* traceToConsole */, logLevel);
 }
 
 export class Logger implements tss.server.Logger {
