@@ -47,7 +47,11 @@ export function activate(context: ExtensionContext) {
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     // Register the server for Angular templates
-    documentSelector: ['ng-template', 'html', 'typescript'],
+    documentSelector: [
+			{language: 'ng-template', scheme: 'file'},
+			{language: 'html', scheme: 'file'},
+			{language: 'typescript', scheme: 'file'},
+		],
 
     // Information in the TypeScript project is necessary to generate Angular template completions
     synchronize: {
