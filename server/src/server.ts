@@ -11,6 +11,7 @@ import {ServerHost} from './server_host';
 import {ProjectService} from './project_service';
 import {uriToFilePath, filePathToUri} from './utils';
 import {tsCompletionEntryToLspCompletionItem} from './completion';
+import {tsDiagnosticToLspDiagnostic} from './diagnostic';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 const connection: lsp.IConnection = lsp.createConnection();
@@ -30,12 +31,70 @@ for (let i = 0; i < process.argv.length; ++i) {
 // logger logs to file. OK to emit verbose entries.
 const logger = createLogger(options);
 connection.console.info(`Log file: ${logger.getLogFileName()}`);
+
 // Our ProjectService is just a thin wrapper around TS's ProjectService
-const projSvc = new ProjectService(tsProjSvcHost, logger, connection.console);
-const {tsProjSvc} = projSvc;
+
+// const {tsProjSvc} = projSvc;
 
 if (process.env.NG_DEBUG) {
 	logger.info("Angular Language Service is under DEBUG mode");
+}
+const pluginProbeLocation = tsProjSvcHost.getCurrentDirectory();
+connection.console.info(`Launching @angular/language-service from ${pluginProbeLocation}`);
+
+if (process.env.TSC_NONPOLLING_WATCHER !== 'true') {
+	connection.console.warn(`Using less efficient polling watcher. Set TSC_NONPOLLING_WATCHER to true.`);
+}
+
+const tsProjSvc = new tss.server.ProjectService({
+	host: tsProjSvcHost,
+	logger,
+	cancellationToken: tss.server.nullCancellationToken,
+	useSingleInferredProject: true,
+	useInferredProjectPerProjectRoot: true,
+	typingsInstaller: tss.server.nullTypingsInstaller,
+	suppressDiagnosticEvents: false,
+	eventHandler: handleProjectServiceEvent,
+	globalPlugins: ['@angular/language-service'],
+	pluginProbeLocations: [pluginProbeLocation],
+	allowLocalPluginLoads: false,	// do not load plugins from tsconfig.json
+	// allowLocalPluginLoads: true,
+});
+
+const projSvc = new ProjectService(tsProjSvc);
+
+const globalPlugins = tsProjSvc.globalPlugins;
+if (globalPlugins.includes('@angular/language-service')) {
+	console.info('Success: @angular/language-service loaded');
+}
+else {
+	console.error('Failed to load @angular/language-service');
+}
+
+function handleProjectServiceEvent(event: tss.server.ProjectServiceEvent) {
+	connection.console.info(`Event: ${event.eventName}`);
+	if (event.eventName !== tss.server.ProjectsUpdatedInBackgroundEvent) {
+		return;
+	}
+	const {openFiles} = event.data;
+	for (const fileName of openFiles) {
+		const scriptInfo = tsProjSvc.getScriptInfo(fileName);
+		if (!scriptInfo) {
+			continue;
+		}
+		const project = projSvc.getDefaultProjectForScriptInfo(scriptInfo);
+		if (!project) {
+			continue;
+		}
+		const ngLS = project.getLanguageService();
+		const diagnostics = ngLS.getSemanticDiagnostics(fileName);
+		// Need to send diagnostics even if it's empty otherwise editor state will
+		// not be updated.
+		connection.sendDiagnostics({
+			uri: filePathToUri(fileName),
+			diagnostics: diagnostics.map(d => tsDiagnosticToLspDiagnostic(d, scriptInfo)),
+		});
+	}
 }
 
 // After the server has started the client sends an initilize request.
@@ -112,6 +171,9 @@ connection.onDidChangeTextDocument((params: lsp.DidChangeTextDocumentParams) => 
 			scriptInfo.editContent(start, end, change.text);
 		}
 	}
+
+	const project = scriptInfo.getDefaultProject();
+	project.refreshDiagnostics();
 });
 
 connection.onDidSaveTextDocument((params: lsp.DidSaveTextDocumentParams) => {
@@ -128,8 +190,6 @@ connection.onDidSaveTextDocument((params: lsp.DidSaveTextDocumentParams) => {
 		scriptInfo.reloadFromFile();
 	}
 });
-
-
 
 connection.onDefinition((params: lsp.TextDocumentPositionParams) => {
 	const {position, textDocument} = params;
@@ -160,16 +220,15 @@ connection.onDefinition((params: lsp.TextDocumentPositionParams) => {
 		}
 		const startLoc = scriptInfo.positionToLineOffset(d.textSpan.start);
 		const endLoc = scriptInfo.positionToLineOffset(d.textSpan.start + d.textSpan.length);
+		// ScriptInfo is 1-based, LSP is 0-based
 		const range = lsp.Range.create(
-			// ScriptInfo is 1-based, LSP is 0-based
-			lsp.Position.create(startLoc.line - 1, startLoc.offset - 1),
-			lsp.Position.create(endLoc.line - 1, endLoc.offset - 1),
+			startLoc.line - 1, startLoc.offset - 1,
+			endLoc.line - 1, endLoc.offset - 1,
 		);
 		results.push(lsp.Location.create(filePathToUri(d.fileName), range));
 	}
 	return results;
 });
-
 
 connection.onHover((params: lsp.TextDocumentPositionParams) => {
 	const {position, textDocument} = params;
@@ -216,8 +275,8 @@ connection.onHover((params: lsp.TextDocumentPositionParams) => {
 	return {
 		contents,
 		range: lsp.Range.create(
-			lsp.Position.create(startLoc.line - 1, startLoc.offset - 1),
-			lsp.Position.create(endLoc.line - 1, endLoc.offset - 1),
+			startLoc.line - 1, startLoc.offset - 1,
+			endLoc.line - 1, endLoc.offset - 1
 		),
 	};
 });
@@ -248,116 +307,4 @@ connection.onCompletion((params: lsp.CompletionParams) => {
 	return completions.entries.map((e) => tsCompletionEntryToLspCompletionItem(e, position));
 });
 
-// Listen on the connection
 connection.listen();
-
-// Setup the error collector that watches for document events and requests errors
-// reported back to the client
-// const errorCollector = new ErrorCollector(documents, connection);
-
-// function handleTextEvent(event: TextDocumentEvent) {
-//   switch (event.kind) {
-//     case 'context':
-//     case 'change':
-//     case 'opened':
-//       errorCollector.requestErrors(event.document);
-//   }
-// }
-
-// Make the text document manager listen on the connection
-// for open, change and close text document events
-// documents.listen(connection);
-
-/*
-function compiletionKindToCompletionItemKind(kind: string): CompletionItemKind {
-  switch (kind) {
-  case 'attribute': return CompletionItemKind.Property;
-  case 'html attribute': return CompletionItemKind.Property;
-  case 'component': return CompletionItemKind.Class;
-  case 'element': return CompletionItemKind.Class;
-  case 'entity': return CompletionItemKind.Text;
-  case 'key': return CompletionItemKind.Class;
-  case 'method': return CompletionItemKind.Method;
-  case 'pipe': return CompletionItemKind.Function;
-  case 'property': return CompletionItemKind.Property;
-  case 'type': return CompletionItemKind.Interface;
-  case 'reference': return CompletionItemKind.Variable;
-  case 'variable': return CompletionItemKind.Variable;
-  }
-  return CompletionItemKind.Text;
-}
-
-const wordRe = /(\w|\(|\)|\[|\]|\*|\-|\_|\.)+/g;
-const special = /\(|\)|\[|\]|\*|\-|\_|\./;
-
-// Convert attribute names with non-\w chracters into a text edit.
-function insertionToEdit(range: Range, insertText: string): TextEdit {
-  if (insertText.match(special) && range) {
-    return TextEdit.replace(range, insertText);
-  }
-}
-
-function getReplaceRange(document: TextDocumentIdentifier, offset: number): Range {
-  const line = documents.getDocumentLine(document, offset);
-  if (line && line.text && line.start <= offset && line.start + line.text.length >= offset) {
-    const lineOffset = offset - line.start - 1;
-
-    // Find the word that contains the offset
-    let found: number, len: number;
-    line.text.replace(wordRe, <any>((word: string, _: string, wordOffset: number) => {
-      if (wordOffset <= lineOffset && wordOffset + word.length >= lineOffset && word.match(special)) {
-        found = wordOffset;
-        len = word.length;
-      }
-    }));
-    if (found != null) {
-      return Range.create(Position.create(line.line - 1, found), Position.create(line.line - 1, found + len));
-    }
-  }
-}
-
-function insertTextOf(completion: Completion): string {
-  switch (completion.kind) {
-    case 'attribute':
-    case 'html attribute':
-      return `${completion.name}=`;
-  }
-  return completion.name;
-}
-
-function ngDefintionToDefintion(definition: ng.Definition): Definition {
-  const locations = definition.map(d => {
-    const document = TextDocumentIdentifier.create(fileNameToUri(d.fileName));
-    const positions = documents.offsetsToPositions(document, [d.span.start, d.span.end]);
-    return {document, positions}
-  }).filter(d => d.positions.length > 0).map(d => {
-    const range = Range.create(d.positions[0], d.positions[1]);
-    return Location.create(d.document.uri, range);
-  });
-  if (locations && locations.length) {
-    return locations;
-  }
-}
-
-function logErrors<T>(f: () => T): T {
-  try {
-    return f();
-  } catch (e) {
-    if (e.message && e.stack) connection.console.error(`SERVER ERROR: ${e.message}\n${e.stack}`);
-    throw e;
-  }
-}
-
-function ngHoverToHover(hover: ng.Hover, document: TextDocumentIdentifier): Hover {
-  if (hover) {
-    const positions = documents.offsetsToPositions(document, [hover.span.start, hover.span.end]);
-    if (positions) {
-      const range = Range.create(positions[0], positions[1]);
-      return {
-        contents: {language: 'typescript', value: hover.text.map(t => t.text).join('')},
-        range
-      };
-    }
-  }
-}
-*/
