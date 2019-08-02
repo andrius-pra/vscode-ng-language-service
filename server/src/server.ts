@@ -139,6 +139,9 @@ connection.onDidOpenTextDocument((params: lsp.DidOpenTextDocumentParams) => {
 	}
 	// Must mark project as dirty to rebuild the program.
 	project.markAsDirty();
+
+	// TODO: enable when language service handles HTML files
+	// project.refreshDiagnostics();
 });
 
 connection.onDidCloseTextDocument((params: lsp.DidCloseTextDocumentParams) => {
