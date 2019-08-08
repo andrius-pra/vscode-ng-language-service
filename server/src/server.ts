@@ -15,7 +15,7 @@ import {tsDiagnosticToLspDiagnostic} from './diagnostic';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 const connection: lsp.IConnection = lsp.createConnection();
-const tsProjSvcHost = new ServerHost(tss.sys);
+const serverHost = new ServerHost(tss.sys);
 
 const options = new Map<string, string>();
 for (let i = 0; i < process.argv.length; ++i) {
@@ -39,7 +39,7 @@ connection.console.info(`Log file: ${logger.getLogFileName()}`);
 if (process.env.NG_DEBUG) {
 	logger.info("Angular Language Service is under DEBUG mode");
 }
-const pluginProbeLocation = tsProjSvcHost.getCurrentDirectory();
+const pluginProbeLocation = serverHost.getCurrentDirectory();
 connection.console.info(`Launching @angular/language-service from ${pluginProbeLocation}`);
 
 if (process.env.TSC_NONPOLLING_WATCHER !== 'true') {
@@ -47,7 +47,7 @@ if (process.env.TSC_NONPOLLING_WATCHER !== 'true') {
 }
 
 const tsProjSvc = new tss.server.ProjectService({
-	host: tsProjSvcHost,
+	host: serverHost,
 	logger,
 	cancellationToken: tss.server.nullCancellationToken,
 	useSingleInferredProject: true,
@@ -122,6 +122,10 @@ connection.onDidOpenTextDocument((params: lsp.DidOpenTextDocumentParams) => {
 		return;
 	}
 	connection.console.info(`OPEN: ${filePath}`);
+
+	const scriptInfo = tsProjSvc.getScriptInfo(filePath);
+	// scriptInfo.default
+
 	const scriptKind = filePath.endsWith('.ts') ? tss.ScriptKind.TS : tss.ScriptKind.External;
 	const result = tsProjSvc.openClientFile(filePath, textDocument.text, scriptKind);
 
@@ -210,8 +214,8 @@ connection.onDefinition((params: lsp.TextDocumentPositionParams) => {
 	}
 
 	const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
-	const tsLangSvc = project.getLanguageService();
-	const definition = tsLangSvc.getDefinitionAndBoundSpan(fileName, offset);
+	const langSvc = project.getLanguageService();
+	const definition = langSvc.getDefinitionAndBoundSpan(fileName, offset);
 	if (!definition || !definition.definitions) {
 		return;
 	}
@@ -249,8 +253,8 @@ connection.onHover((params: lsp.TextDocumentPositionParams) => {
 		return;
 	}
 	const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
-	const tsLangSvc = project.getLanguageService();
-	const info = tsLangSvc.getQuickInfoAtPosition(fileName, offset);
+	const langSvc = project.getLanguageService();
+	const info = langSvc.getQuickInfoAtPosition(fileName, offset);
 	if (!info) {
 		return;
 	}
@@ -300,8 +304,8 @@ connection.onCompletion((params: lsp.CompletionParams) => {
 		return;
 	}
 	const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
-	const tsLangSvc = project.getLanguageService();
-	const completions = tsLangSvc.getCompletionsAtPosition(filePath, offset, {
+	const langSvc = project.getLanguageService();
+	const completions = langSvc.getCompletionsAtPosition(filePath, offset, {
 		// options
 	});
 	if (!completions || !completions.entries.length) {
