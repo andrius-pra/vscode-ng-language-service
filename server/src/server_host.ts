@@ -137,23 +137,23 @@ export class ServerHost implements tss.server.ServerHost {
 
   clearImmediate(timeoutId: any): void {
     return clearImmediate(timeoutId);
-	}
+  }
 
-	require(initialPath: string, moduleName: string) {
-		try {
-			const modulePath = require.resolve(moduleName, {
-				paths: [initialPath],
-			});
-			return {
-				module: require(modulePath),
-				error: undefined,
-			};
-		}
-		catch(e) {
-			return {
-				module: undefined,
-				error: e as Error,
-			};
-		}
-	}
+  require(initialPath: string, moduleName: string) {
+    try {
+      const modulePath = require.resolve(moduleName, {
+        paths: [initialPath],
+      });
+      return {
+        module: require(modulePath),
+        error: undefined,
+      };
+    }
+    catch(e) {
+      return {
+        module: undefined,
+        error: e as Error,
+      };
+    }
+  }
 }

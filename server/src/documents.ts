@@ -5,7 +5,7 @@ import {LanguageService} from '@angular/language-service';
 
 import {
   IConnection, TextDocumentSyncKind, RemoteConsole,
-	TextDocumentIdentifier, Position
+  TextDocumentIdentifier, Position
 } from 'vscode-languageserver';
 
 import {Logger as ProjectLogger, ProjectService, ProjectServiceEvent, ProjectServiceHost} from './editorServices';

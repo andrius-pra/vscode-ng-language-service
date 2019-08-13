@@ -4,11 +4,11 @@ import { workspace, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, RevealOutputChannelOn } from 'vscode-languageclient';
 
 export function activate(context: ExtensionContext) {
-	const logFile = path.join(context.logPath, 'nglangsvc.log');
-	if (!fs.existsSync(logFile)) {
-		fs.mkdirSync(context.logPath);
-		fs.closeSync(fs.openSync(logFile, 'w'));
-	}
+  const logFile = path.join(context.logPath, 'nglangsvc.log');
+  if (!fs.existsSync(logFile)) {
+    fs.mkdirSync(context.logPath);
+    fs.closeSync(fs.openSync(logFile, 'w'));
+  }
 
   // The server is implemented in node
   const serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
@@ -17,45 +17,45 @@ export function activate(context: ExtensionContext) {
   // Otherwise the run options are used
   const serverOptions: ServerOptions = {
     run : {
-			module: serverModule,
-			transport: TransportKind.ipc,
-			args: ['--logFile', logFile],
-			options: {
-				env: {
-					// Force TypeScript to use the non-polling version of the file watchers.
-					TSC_NONPOLLING_WATCHER: true,
-				},
-			},
-		},
+      module: serverModule,
+      transport: TransportKind.ipc,
+      args: ['--logFile', logFile],
+      options: {
+        env: {
+          // Force TypeScript to use the non-polling version of the file watchers.
+          TSC_NONPOLLING_WATCHER: true,
+        },
+      },
+    },
     debug: {	// debug is used when running in vscode development mode
-			module: serverModule,
-			transport: TransportKind.ipc,
-			args: [
-				'--logFile', logFile,
-				'--logVerbosity', 'verbose',
-			],
-			options: {
-				env: {
-					// Force TypeScript to use the non-polling version of the file watchers.
-					TSC_NONPOLLING_WATCHER: true,
-					NG_DEBUG: true,
-				},
-				execArgv : [
-					// '--nolazy',
-					'--inspect=6009',
-				],
-			},
-			/* *, options: debugOptions /* */ }
+      module: serverModule,
+      transport: TransportKind.ipc,
+      args: [
+        '--logFile', logFile,
+        '--logVerbosity', 'verbose',
+      ],
+      options: {
+        env: {
+          // Force TypeScript to use the non-polling version of the file watchers.
+          TSC_NONPOLLING_WATCHER: true,
+          NG_DEBUG: true,
+        },
+        execArgv : [
+          // '--nolazy',
+          '--inspect=6009',
+        ],
+      },
+      /* *, options: debugOptions /* */ }
   }
 
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     // Register the server for Angular templates
     documentSelector: [
-			{language: 'ng-template', scheme: 'file'},
-			{language: 'html', scheme: 'file'},
-			{language: 'typescript', scheme: 'file'},
-		],
+      {language: 'ng-template', scheme: 'file'},
+      {language: 'html', scheme: 'file'},
+      {language: 'typescript', scheme: 'file'},
+    ],
 
     // Information in the TypeScript project is necessary to generate Angular template completions
     synchronize: {
