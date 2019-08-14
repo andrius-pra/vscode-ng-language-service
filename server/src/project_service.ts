@@ -1,7 +1,4 @@
 import * as tss from 'typescript/lib/tsserverlibrary';
-// import {ServerHost} from './server_host';
-// import {Logger} from './logger';
-// import * as lsp from 'vscode-languageserver';
 
 export class ProjectService {
 

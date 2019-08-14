@@ -1,9 +1,3 @@
-/* --------------------------------------------------------------------------------------------
- * Portions Copyright (c) Microsoft Corporation. All rights reserved.
- * Portions Copyright (c) Google Inc. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
-
 import * as lsp from 'vscode-languageserver';
 import * as tss from 'typescript/lib/tsserverlibrary';
 import {createLogger} from './logger';
