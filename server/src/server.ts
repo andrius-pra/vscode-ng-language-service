@@ -1,5 +1,5 @@
 import * as lsp from 'vscode-languageserver';
-import * as tss from 'typescript/lib/tsserverlibrary';
+import * as ts from 'typescript/lib/tsserverlibrary';
 import {createLogger} from './logger';
 import {ServerHost} from './server_host';
 import {ProjectService} from './project_service';
@@ -7,9 +7,14 @@ import {uriToFilePath, filePathToUri} from './utils';
 import {tsCompletionEntryToLspCompletionItem} from './completion';
 import {tsDiagnosticToLspDiagnostic} from './diagnostic';
 
+enum LanguageId {
+  TS = 'typescript',
+  HTML = 'html',
+}
+
 // Create a connection for the server. The connection uses Node's IPC as a transport
 const connection: lsp.IConnection = lsp.createConnection();
-const serverHost = new ServerHost(tss.sys);
+const serverHost = new ServerHost(ts.sys);
 
 const options = new Map<string, string>();
 for (let i = 0; i < process.argv.length; ++i) {
@@ -40,26 +45,25 @@ if (process.env.TSC_NONPOLLING_WATCHER !== 'true') {
   connection.console.warn(`Using less efficient polling watcher. Set TSC_NONPOLLING_WATCHER to true.`);
 }
 
-const tsProjSvc = new tss.server.ProjectService({
+const tsProjSvc = new ts.server.ProjectService({
   host: serverHost,
   logger,
-  cancellationToken: tss.server.nullCancellationToken,
+  cancellationToken: ts.server.nullCancellationToken,
   useSingleInferredProject: true,
   useInferredProjectPerProjectRoot: true,
-  typingsInstaller: tss.server.nullTypingsInstaller,
+  typingsInstaller: ts.server.nullTypingsInstaller,
   suppressDiagnosticEvents: false,
   eventHandler: handleProjectServiceEvent,
   globalPlugins: ['@angular/language-service'],
   pluginProbeLocations: [pluginProbeLocation],
   allowLocalPluginLoads: false,	// do not load plugins from tsconfig.json
-  // allowLocalPluginLoads: true,
 });
 
 tsProjSvc.configurePlugin({
-	pluginName: '@angular/language-service',
-	configuration: {
-		'angularOnly': true,
-	},
+  pluginName: '@angular/language-service',
+  configuration: {
+    'angularOnly': true,
+  },
 })
 
 const projSvc = new ProjectService(tsProjSvc);
@@ -72,11 +76,13 @@ else {
   console.error('Failed to load @angular/language-service');
 }
 
-function handleProjectServiceEvent(event: tss.server.ProjectServiceEvent) {
-  connection.console.info(`Event: ${event.eventName}`);
-  if (event.eventName !== tss.server.ProjectsUpdatedInBackgroundEvent) {
+function handleProjectServiceEvent(event: ts.server.ProjectServiceEvent) {
+  // connection.console.info(`Event: ${event.eventName}`);
+  if (event.eventName !== ts.server.ProjectsUpdatedInBackgroundEvent) {
     return;
   }
+  // ProjectsUpdatedInBackgroundEvent is sent whenever diagnostics are requested
+  // via project.refreshDiagnostics()
   const {openFiles} = event.data;
   for (const fileName of openFiles) {
     const scriptInfo = tsProjSvc.getScriptInfo(fileName);
@@ -99,42 +105,38 @@ function handleProjectServiceEvent(event: tss.server.ProjectServiceEvent) {
 }
 
 // After the server has started the client sends an initilize request.
-connection.onInitialize((params): lsp.InitializeResult => {
+connection.onInitialize((params: lsp.InitializeParams): lsp.InitializeResult => {
   return {
     capabilities: {
-      // Tell the client that the server works in INCREMENTAL text document sync mode
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
-      // Tell the client that the server support code complete
       completionProvider: {
-        /// The server provides support to resolve additional information for a completion item.
+        /// The server does not provide support to resolve additional information
+        // for a completion item.
         resolveProvider: false,
         triggerCharacters: ['<', '.', '*', '[', '(']
       },
       definitionProvider: true,
       hoverProvider: true,
-    }
+    },
   }
 });
 
 connection.onDidOpenTextDocument((params: lsp.DidOpenTextDocumentParams) => {
-  const {textDocument} = params;
-  const filePath = uriToFilePath(textDocument.uri);
+  const {uri, text, languageId} = params.textDocument;
+  const filePath = uriToFilePath(uri);
   if (!filePath) {
     return;
   }
-  connection.console.info(`OPEN: ${filePath}`);
 
-  const scriptInfo = tsProjSvc.getScriptInfo(filePath);
-  // scriptInfo.default
-
-  const scriptKind = filePath.endsWith('.ts') ? tss.ScriptKind.TS : tss.ScriptKind.External;
-  const result = tsProjSvc.openClientFile(filePath, textDocument.text, scriptKind);
+  const scriptKind = languageId === LanguageId.TS ? ts.ScriptKind.TS : ts.ScriptKind.External;
+  const result = tsProjSvc.openClientFile(filePath, text, scriptKind);
 
   const {configFileName, configFileErrors} = result;
   if (configFileErrors && configFileErrors.length) {
     connection.console.error(configFileErrors.map(e => e.messageText).join('\n'));
   }
   if (!configFileName) {
+    connection.console.error(`No config file for ${filePath}`);
     return;
   }
   const project = tsProjSvc.findProject(configFileName);
@@ -142,11 +144,8 @@ connection.onDidOpenTextDocument((params: lsp.DidOpenTextDocumentParams) => {
     connection.console.error(`Failed to find project for ${filePath}`);
     return;
   }
-  // Must mark project as dirty to rebuild the program.
-  project.markAsDirty();
-
-  // TODO: enable when language service handles HTML files
-  // project.refreshDiagnostics();
+  project.markAsDirty();	// Must mark project as dirty to rebuild the program.
+  project.refreshDiagnostics();	// Show initial diagnostics
 });
 
 connection.onDidCloseTextDocument((params: lsp.DidCloseTextDocumentParams) => {
