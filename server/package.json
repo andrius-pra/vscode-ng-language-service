@@ -15,11 +15,5 @@
 	"dependencies": {
 		"vscode-languageserver": "~5.2.1"
 	},
-	"devDependencies": {
-		"@angular/compiler": "^8.1.2",
-		"@angular/compiler-cli": "^8.1.2",
-		"@angular/core": "^8.1.2",
-		"@angular/language-service": "^8.1.2",
-		"rxjs": "^6.5.2"
-	}
+	"devDependencies": {}
 }

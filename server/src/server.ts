@@ -61,6 +61,13 @@ const tsProjSvc = new tss.server.ProjectService({
   // allowLocalPluginLoads: true,
 });
 
+tsProjSvc.configurePlugin({
+	pluginName: '@angular/language-service',
+	configuration: {
+		'angularOnly': true,
+	},
+})
+
 const projSvc = new ProjectService(tsProjSvc);
 
 const globalPlugins = tsProjSvc.globalPlugins;
