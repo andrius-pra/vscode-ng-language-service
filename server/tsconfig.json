@@ -7,14 +7,5 @@
 		"strict": true,
 		"outDir": "out",
 		"rootDir": "src"
-  },
-	"include": [
-		"src/completion.ts",
-		"src/logger.ts",
-		"src/project_service.ts",
-    "src/server.ts",
-		"src/server_host.ts",
-		"src/utils.ts"
-	],
-	// "exclude": ["node_modules", ".vscode-test", "src/editorServices.ts"]
+  }
 }
