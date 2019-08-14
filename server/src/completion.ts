@@ -1,4 +1,3 @@
-import * as ts from 'typescript/lib/tsserverlibrary';
 import * as lsp from 'vscode-languageserver';
 
 // kind is actually ts.ScriptElementKind

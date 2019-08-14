@@ -1,5 +1,3 @@
-import * as ts from 'typescript/lib/tsserverlibrary';
-
 export class ServerHost implements ts.server.ServerHost {
   readonly args: string[];
   readonly newLine: string;

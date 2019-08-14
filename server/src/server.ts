@@ -3,7 +3,7 @@ import * as ts from 'typescript/lib/tsserverlibrary';
 import {createLogger} from './logger';
 import {ServerHost} from './server_host';
 import {ProjectService} from './project_service';
-import {uriToFilePath, filePathToUri} from './utils';
+import {uriToFilePath, filePathToUri, tsTextSpanToLspRange, lspRangeToTsPositions, lspPositionToTsPosition} from './utils';
 import {tsCompletionEntryToLspCompletionItem} from './completion';
 import {tsDiagnosticToLspDiagnostic} from './diagnostic';
 
@@ -30,10 +30,6 @@ for (let i = 0; i < process.argv.length; ++i) {
 // logger logs to file. OK to emit verbose entries.
 const logger = createLogger(options);
 connection.console.info(`Log file: ${logger.getLogFileName()}`);
-
-// Our ProjectService is just a thin wrapper around TS's ProjectService
-
-// const {tsProjSvc} = projSvc;
 
 if (process.env.NG_DEBUG) {
   logger.info("Angular Language Service is under DEBUG mode");
@@ -66,6 +62,7 @@ tsProjSvc.configurePlugin({
   },
 })
 
+// Our ProjectService is just a thin wrapper around TS's ProjectService
 const projSvc = new ProjectService(tsProjSvc);
 
 const globalPlugins = tsProjSvc.globalPlugins;
@@ -170,11 +167,7 @@ connection.onDidChangeTextDocument((params: lsp.DidChangeTextDocumentParams) => 
   }
   for (const change of contentChanges) {
     if (change.range) {
-      const {line: startLine, character: startOffset} = change.range.start;
-      // ScriptInfo is 1-based, LSP is 0-based
-      const start = scriptInfo.lineOffsetToPosition(startLine + 1, startOffset + 1);
-      const {line: endLine, character: endOffset} = change.range.end;
-      const end = scriptInfo.lineOffsetToPosition(endLine + 1, endOffset + 1);
+      const [start, end] = lspRangeToTsPositions(scriptInfo, change.range);
       scriptInfo.editContent(start, end, change.text);
     }
   }
@@ -213,7 +206,7 @@ connection.onDefinition((params: lsp.TextDocumentPositionParams) => {
     return;
   }
 
-  const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
+  const offset = lspPositionToTsPosition(scriptInfo, position);
   const langSvc = project.getLanguageService();
   const definition = langSvc.getDefinitionAndBoundSpan(fileName, offset);
   if (!definition || !definition.definitions) {
@@ -225,14 +218,9 @@ connection.onDefinition((params: lsp.TextDocumentPositionParams) => {
     if (!scriptInfo) {
       continue;
     }
-    const startLoc = scriptInfo.positionToLineOffset(d.textSpan.start);
-    const endLoc = scriptInfo.positionToLineOffset(d.textSpan.start + d.textSpan.length);
-    // ScriptInfo is 1-based, LSP is 0-based
-    const range = lsp.Range.create(
-      startLoc.line - 1, startLoc.offset - 1,
-      endLoc.line - 1, endLoc.offset - 1,
-    );
-    results.push(lsp.Location.create(filePathToUri(d.fileName), range));
+    const uri = filePathToUri(d.fileName);
+    const range = tsTextSpanToLspRange(scriptInfo, d.textSpan);
+    results.push(lsp.Location.create(uri, range));
   }
   return results;
 });
@@ -252,7 +240,7 @@ connection.onHover((params: lsp.TextDocumentPositionParams) => {
   if (!project) {
     return;
   }
-  const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
+  const offset = lspPositionToTsPosition(scriptInfo, position);
   const langSvc = project.getLanguageService();
   const info = langSvc.getQuickInfoAtPosition(fileName, offset);
   if (!info) {
@@ -277,14 +265,9 @@ connection.onHover((params: lsp.TextDocumentPositionParams) => {
       contents.push(d.text);
     }
   }
-  const startLoc = scriptInfo.positionToLineOffset(textSpan.start);
-  const endLoc = scriptInfo.positionToLineOffset(textSpan.start + textSpan.length);
   return {
     contents,
-    range: lsp.Range.create(
-      startLoc.line - 1, startLoc.offset - 1,
-      endLoc.line - 1, endLoc.offset - 1
-    ),
+    range: tsTextSpanToLspRange(scriptInfo, textSpan),
   };
 });
 
@@ -303,7 +286,7 @@ connection.onCompletion((params: lsp.CompletionParams) => {
   if (!project) {
     return;
   }
-  const offset = scriptInfo.lineOffsetToPosition(position.line + 1, position.character + 1);
+  const offset = lspPositionToTsPosition(scriptInfo, position);
   const langSvc = project.getLanguageService();
   const completions = langSvc.getCompletionsAtPosition(filePath, offset, {
     // options

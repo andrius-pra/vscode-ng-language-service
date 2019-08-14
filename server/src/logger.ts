@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import * as tss from 'typescript/lib/tsserverlibrary';
+import * as ts from 'typescript/lib/tsserverlibrary';
 
 function noop(_?: {} | null | undefined): void { } // tslint:disable-line no-empty
 
@@ -13,26 +13,26 @@ function nowString() {
 export function createLogger(options: Map<string, string>) {
   const logFile = options.get('logFile') || path.join(fs.mkdtempSync('ng_'), 'ngserver.log');
   const logVerbosity = options.get('logVerbosity') || 'normal';
-  let logLevel: tss.server.LogLevel;
+  let logLevel: ts.server.LogLevel;
   switch (logVerbosity) {
     case 'terse':
-      logLevel = tss.server.LogLevel.terse;
+      logLevel = ts.server.LogLevel.terse;
       break;
     case 'requestTime':
-      logLevel = tss.server.LogLevel.requestTime;
+      logLevel = ts.server.LogLevel.requestTime;
       break;
     case 'verbose':
-      logLevel = tss.server.LogLevel.verbose;
+      logLevel = ts.server.LogLevel.verbose;
       break;
     case 'normal':
     default:
-      logLevel = tss.server.LogLevel.terse;
+      logLevel = ts.server.LogLevel.terse;
       break;
   }
   return new Logger(logFile, false /* traceToConsole */, logLevel);
 }
 
-export class Logger implements tss.server.Logger {
+export class Logger implements ts.server.Logger {
   private fd = -1;
   private seq = 0;
   private inGroup = false;
@@ -40,7 +40,7 @@ export class Logger implements tss.server.Logger {
 
   constructor(private readonly logFilename: string,
       private readonly traceToConsole: boolean,
-      private readonly level: tss.server.LogLevel) {
+      private readonly level: ts.server.LogLevel) {
       if (this.logFilename) {
           try {
               this.fd = fs.openSync(this.logFilename, "w");
@@ -66,15 +66,15 @@ export class Logger implements tss.server.Logger {
   }
 
   perftrc(s: string) {
-      this.msg(s, tss.server.Msg.Perf);
+      this.msg(s, ts.server.Msg.Perf);
   }
 
   info(s: string) {
-      this.msg(s, tss.server.Msg.Info);
+      this.msg(s, ts.server.Msg.Info);
   }
 
   err(s: string) {
-      this.msg(s, tss.server.Msg.Err);
+      this.msg(s, ts.server.Msg.Err);
   }
 
   startGroup() {
@@ -90,11 +90,11 @@ export class Logger implements tss.server.Logger {
       return !!this.logFilename || this.traceToConsole;
   }
 
-  hasLevel(level: tss.server.LogLevel) {
+  hasLevel(level: ts.server.LogLevel) {
       return this.loggingEnabled() && this.level >= level;
   }
 
-  msg(s: string, type: tss.server.Msg = tss.server.Msg.Err) {
+  msg(s: string, type: ts.server.Msg = ts.server.Msg.Err) {
       if (!this.canWrite) return;
 
       s = `[${nowString()}] ${s}\n`;
@@ -124,7 +124,7 @@ export class Logger implements tss.server.Logger {
   }
 }
 
-export class DummyLogger implements tss.server.Logger {
+export class DummyLogger implements ts.server.Logger {
 
   // constructor(logger: Connection)
 
@@ -132,7 +132,7 @@ export class DummyLogger implements tss.server.Logger {
 
   }
 
-  hasLevel(level: tss.server.LogLevel): boolean {
+  hasLevel(level: ts.server.LogLevel): boolean {
     return false;
   }
 
@@ -156,7 +156,7 @@ export class DummyLogger implements tss.server.Logger {
 
   }
 
-  msg(s: string, type?: tss.server.Msg): void {
+  msg(s: string, type?: ts.server.Msg): void {
 
   }
 
