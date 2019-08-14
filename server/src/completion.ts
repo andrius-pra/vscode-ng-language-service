@@ -1,7 +1,7 @@
-import * as tss from 'typescript/lib/tsserverlibrary';
+import * as ts from 'typescript/lib/tsserverlibrary';
 import * as lsp from 'vscode-languageserver';
 
-// kind is actually tss.ScriptElementKind
+// kind is actually ts.ScriptElementKind
 function compiletionKindToCompletionItemKind(kind: string): lsp.CompletionItemKind {
   switch (kind) {
   case 'attribute': return lsp.CompletionItemKind.Property;
@@ -21,7 +21,7 @@ function compiletionKindToCompletionItemKind(kind: string): lsp.CompletionItemKi
 }
 
 export function tsCompletionEntryToLspCompletionItem(
-  entry: tss.CompletionEntry,
+  entry: ts.CompletionEntry,
   position: lsp.Position,
 ): lsp.CompletionItem {
   const item = lsp.CompletionItem.create(entry.name);

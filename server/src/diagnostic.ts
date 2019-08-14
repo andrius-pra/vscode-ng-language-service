@@ -1,21 +1,21 @@
-import * as tss from 'typescript/lib/tsserverlibrary';
+import * as ts from 'typescript/lib/tsserverlibrary';
 import * as lsp from 'vscode-languageserver';
 
-function tsDiagnosticCategoryToLspDiagnosticSeverity(category: tss.DiagnosticCategory) {
+function tsDiagnosticCategoryToLspDiagnosticSeverity(category: ts.DiagnosticCategory) {
   switch (category) {
-    case tss.DiagnosticCategory.Warning:
+    case ts.DiagnosticCategory.Warning:
       return lsp.DiagnosticSeverity.Warning;
-    case tss.DiagnosticCategory.Error:
+    case ts.DiagnosticCategory.Error:
       return lsp.DiagnosticSeverity.Error;
-    case tss.DiagnosticCategory.Suggestion:
+    case ts.DiagnosticCategory.Suggestion:
       return lsp.DiagnosticSeverity.Hint;
-    case tss.DiagnosticCategory.Message:
+    case ts.DiagnosticCategory.Message:
     default:
       return lsp.DiagnosticSeverity.Information;
   }
 }
 
-export function tsDiagnosticToLspDiagnostic(tsDiag: tss.Diagnostic, scriptInfo: tss.server.ScriptInfo): lsp.Diagnostic {
+export function tsDiagnosticToLspDiagnostic(tsDiag: ts.Diagnostic, scriptInfo: ts.server.ScriptInfo): lsp.Diagnostic {
   let start, end;
   if (typeof tsDiag.start === 'number' && typeof tsDiag.length === 'number') {
     start = scriptInfo.positionToLineOffset(tsDiag.start);
@@ -27,7 +27,7 @@ export function tsDiagnosticToLspDiagnostic(tsDiag: tss.Diagnostic, scriptInfo: 
     lsp.Range.create(0, 0, 0, 0);
   return lsp.Diagnostic.create(
     range,
-    tss.flattenDiagnosticMessageText(tsDiag.messageText, '\n'),
+    ts.flattenDiagnosticMessageText(tsDiag.messageText, '\n'),
     tsDiagnosticCategoryToLspDiagnosticSeverity(tsDiag.category),
     tsDiag.code,
     tsDiag.source,

@@ -1,11 +1,11 @@
-import * as tss from 'typescript/lib/tsserverlibrary';
+import * as ts from 'typescript/lib/tsserverlibrary';
 
-export class ServerHost implements tss.server.ServerHost {
+export class ServerHost implements ts.server.ServerHost {
   readonly args: string[];
   readonly newLine: string;
   readonly useCaseSensitiveFileNames: boolean;
 
-  constructor(private readonly sys: tss.System) {
+  constructor(private readonly sys: ts.System) {
     this.args = sys.args;
     this.newLine = sys.newLine;
     this.useCaseSensitiveFileNames = sys.useCaseSensitiveFileNames;
@@ -35,11 +35,11 @@ export class ServerHost implements tss.server.ServerHost {
    * @pollingInterval - this parameter is used in polling-based watchers and ignored in watchers that
    * use native OS file watching
    */
-  watchFile(path: string, callback: tss.FileWatcherCallback, pollingInterval?: number): tss.FileWatcher {
+  watchFile(path: string, callback: ts.FileWatcherCallback, pollingInterval?: number): ts.FileWatcher {
     return this.sys.watchFile!(path, callback, pollingInterval);
   }
 
-  watchDirectory(path: string, callback: tss.DirectoryWatcherCallback, recursive?: boolean): tss.FileWatcher {
+  watchDirectory(path: string, callback: ts.DirectoryWatcherCallback, recursive?: boolean): ts.FileWatcher {
     return this.sys.watchDirectory!(path, callback, recursive);
   }
 
