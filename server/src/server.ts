@@ -5,17 +5,13 @@ import {ServerHost} from './server_host';
 import {ProjectService} from './project_service';
 import {uriToFilePath, filePathToUri, tsTextSpanToLspRange, lspRangeToTsPositions, lspPositionToTsPosition} from './utils';
 import {tsCompletionEntryToLspCompletionItem} from './completion';
-import {tsDiagnosticToLspDiagnostic} from './diagnostic';
 
 enum LanguageId {
   TS = 'typescript',
   HTML = 'html',
 }
 
-// Create a connection for the server. The connection uses Node's IPC as a transport
-const connection: lsp.IConnection = lsp.createConnection();
-const serverHost = new ServerHost(ts.sys);
-
+// Parse startup options
 const options = new Map<string, string>();
 for (let i = 0; i < process.argv.length; ++i) {
   const argv = process.argv[i];
@@ -27,78 +23,24 @@ for (let i = 0; i < process.argv.length; ++i) {
   }
 }
 
+// Create a connection for the server. The connection uses Node's IPC as a transport
+const connection: lsp.IConnection = lsp.createConnection();
+
 // logger logs to file. OK to emit verbose entries.
 const logger = createLogger(options);
-connection.console.info(`Log file: ${logger.getLogFileName()}`);
+// ServerHost provides native OS functionality
+const serverHost = new ServerHost(ts.sys);
+// Our ProjectService is just a thin wrapper around TS's ProjectService
+const projSvc = new ProjectService(serverHost, logger, connection);
+const {tsProjSvc} = projSvc;
 
+// Log initialization info
+connection.console.info(`Log file: ${logger.getLogFileName()}`);
 if (process.env.NG_DEBUG) {
   logger.info("Angular Language Service is under DEBUG mode");
 }
-const pluginProbeLocation = serverHost.getCurrentDirectory();
-connection.console.info(`Launching @angular/language-service from ${pluginProbeLocation}`);
-
 if (process.env.TSC_NONPOLLING_WATCHER !== 'true') {
   connection.console.warn(`Using less efficient polling watcher. Set TSC_NONPOLLING_WATCHER to true.`);
-}
-
-const tsProjSvc = new ts.server.ProjectService({
-  host: serverHost,
-  logger,
-  cancellationToken: ts.server.nullCancellationToken,
-  useSingleInferredProject: true,
-  useInferredProjectPerProjectRoot: true,
-  typingsInstaller: ts.server.nullTypingsInstaller,
-  suppressDiagnosticEvents: false,
-  eventHandler: handleProjectServiceEvent,
-  globalPlugins: ['@angular/language-service'],
-  pluginProbeLocations: [pluginProbeLocation],
-  allowLocalPluginLoads: false,	// do not load plugins from tsconfig.json
-});
-
-tsProjSvc.configurePlugin({
-  pluginName: '@angular/language-service',
-  configuration: {
-    'angularOnly': true,
-  },
-})
-
-// Our ProjectService is just a thin wrapper around TS's ProjectService
-const projSvc = new ProjectService(tsProjSvc);
-
-const globalPlugins = tsProjSvc.globalPlugins;
-if (globalPlugins.includes('@angular/language-service')) {
-  console.info('Success: @angular/language-service loaded');
-}
-else {
-  console.error('Failed to load @angular/language-service');
-}
-
-function handleProjectServiceEvent(event: ts.server.ProjectServiceEvent) {
-  // connection.console.info(`Event: ${event.eventName}`);
-  if (event.eventName !== ts.server.ProjectsUpdatedInBackgroundEvent) {
-    return;
-  }
-  // ProjectsUpdatedInBackgroundEvent is sent whenever diagnostics are requested
-  // via project.refreshDiagnostics()
-  const {openFiles} = event.data;
-  for (const fileName of openFiles) {
-    const scriptInfo = tsProjSvc.getScriptInfo(fileName);
-    if (!scriptInfo) {
-      continue;
-    }
-    const project = projSvc.getDefaultProjectForScriptInfo(scriptInfo);
-    if (!project) {
-      continue;
-    }
-    const ngLS = project.getLanguageService();
-    const diagnostics = ngLS.getSemanticDiagnostics(fileName);
-    // Need to send diagnostics even if it's empty otherwise editor state will
-    // not be updated.
-    connection.sendDiagnostics({
-      uri: filePathToUri(fileName),
-      diagnostics: diagnostics.map(d => tsDiagnosticToLspDiagnostic(d, scriptInfo)),
-    });
-  }
 }
 
 // After the server has started the client sends an initilize request.
