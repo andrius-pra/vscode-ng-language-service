@@ -1,20 +1,14 @@
 {
   "name": "ng-template-server",
   "description": "Angular Language Service server",
-  "version": "0.0.1",
   "private": true,
   "author": "Angular",
   "license": "MIT",
   "engines": {
     "node": "*"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/angular/vscode-ng-language-service"
-  },
   "dependencies": {
     "vscode-languageserver": "~5.2.1",
     "vscode-uri": "^2.0.3"
-  },
-  "devDependencies": {}
+  }
 }
