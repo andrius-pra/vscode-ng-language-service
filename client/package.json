@@ -1,26 +1,26 @@
 {
-	"name": "ng-template-client",
-	"description": "Angular Language Service client",
-	"version": "0.0.1",
-	"private": true,
-	"author": "Angular",
-	"license": "MIT",
-	"publisher": "Angular",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/angular/vscode-ng-language-service"
-	},
-	"engines": {
-		"vscode": "^1.30.0"
-	},
-	"scripts": {
-		"update-vscode": "vscode-install",
-		"postinstall": "vscode-install"
-	},
-	"dependencies": {
-		"vscode-languageclient": "~5.2.1"
-	},
-	"devDependencies": {
-		"vscode": "^1.1.35"
-	}
+  "name": "ng-template-client",
+  "description": "Angular Language Service client",
+  "version": "0.0.1",
+  "private": true,
+  "author": "Angular",
+  "license": "MIT",
+  "publisher": "Angular",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/angular/vscode-ng-language-service"
+  },
+  "engines": {
+    "vscode": "^1.30.0"
+  },
+  "scripts": {
+    "update-vscode": "vscode-install",
+    "postinstall": "vscode-install"
+  },
+  "dependencies": {
+    "vscode-languageclient": "~5.2.1"
+  },
+  "devDependencies": {
+    "vscode": "^1.1.36"
+  }
 }
