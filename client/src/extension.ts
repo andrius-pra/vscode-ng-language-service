@@ -11,7 +11,7 @@ export function activate(context: ExtensionContext) {
   }
 
   // The server is implemented in node
-  const serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
+  const serverModule = context.asAbsolutePath(path.join('out', 'server', 'server.js'));
 
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used

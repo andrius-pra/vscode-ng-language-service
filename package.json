@@ -21,7 +21,7 @@
     "onLanguage:html",
     "onLanguage:typescript"
   ],
-  "main": "./client/out/extension",
+  "main": "./out/client/extension",
   "contributes": {
     "languages": [
       {
@@ -56,5 +56,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/angular/vscode-ng-language-service"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^5.2.1",
+    "vscode-languageserver": "^5.2.1",
+    "vscode-uri": "^2.0.3"
   }
 }

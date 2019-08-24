@@ -1,8 +1,8 @@
 node_modules
 client/node_modules
-client/out
+/out/client
 server/node_modules
-server/out
+out/server
 dist
 tests/project/**/yarn.lock
 **/.idea/
