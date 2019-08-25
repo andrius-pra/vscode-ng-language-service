@@ -1,8 +1,8 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, ExtensionContext, window, ProgressLocation } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, RevealOutputChannelOn } from 'vscode-languageclient';
-
+import { ProjectLoadingFinishNotification, ProjectLoadingStartNotification } from './protocol';
 export function activate(context: ExtensionContext) {
   const logFile = path.join(context.logPath, 'nglangsvc.log');
   if (!fs.existsSync(logFile)) {
@@ -70,9 +70,31 @@ export function activate(context: ExtensionContext) {
   }
 
   // Create the language client and start the client.
-  const disposable = new LanguageClient('Angular Language Service', serverOptions, clientOptions).start();
-
+  const client = new LanguageClient('Angular Language Service', serverOptions, clientOptions);
+  const disposable = client.start();
   // Push the disposable to the context's subscriptions so that the
   // client can be deactivated on extension deactivation
   context.subscriptions.push(disposable);
+
+  client.onReady().then(() => {
+
+    const tasks = new Map<string, { resolve: () => void }>();
+
+    client.onNotification(ProjectLoadingStartNotification.type, (projectName: string) => {
+      window.withProgress({
+        location: ProgressLocation.Window,
+        title: 'Initializing Angular language features',
+      }, () => new Promise((resolve) => {
+        tasks.set(projectName, { resolve });
+      }));
+    });
+
+    client.onNotification(ProjectLoadingFinishNotification.type, (projectName: string) => {
+      if (tasks.has(projectName)) {
+        const task = tasks.get(projectName);
+        task.resolve();
+        tasks.delete(projectName);
+      }
+    });
+  });
 }

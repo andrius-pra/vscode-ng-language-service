@@ -1,16 +1,18 @@
 import {URI} from 'vscode-uri';
 import * as lsp from 'vscode-languageserver';
+import * as path from 'path';
 
 enum Scheme {
   File = 'file',
 };
 
 export function uriToFilePath(uri: string): string {
-  const {scheme, path} = URI.parse(uri);
+  const {scheme, fsPath} = URI.parse(uri);
   if (scheme !== Scheme.File) {
     return '';
   }
-  return path;
+
+  return fsPath.replace(new RegExp('\\' + path.sep, 'g'), '/');
 }
 
 export function filePathToUri(filePath: string): string {

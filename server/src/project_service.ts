@@ -1,7 +1,8 @@
 import * as ts from 'typescript/lib/tsserverlibrary';
 import * as lsp from 'vscode-languageserver';
-import {tsDiagnosticToLspDiagnostic} from './diagnostic';
-import {filePathToUri} from './utils';
+import { tsDiagnosticToLspDiagnostic } from './diagnostic';
+import { ProjectLoadingFinishNotification, ProjectLoadingStartNotification } from './protocol';
+import { filePathToUri } from './utils';
 
 export class ProjectService {
   public readonly tsProjSvc: ts.server.ProjectService;
@@ -68,12 +69,29 @@ export class ProjectService {
   }
 
   private handleProjectServiceEvent(event: ts.server.ProjectServiceEvent) {
+    switch (event.eventName) {
+      case ts.server.ProjectLoadingStartEvent:
+        this.connection.sendNotification(
+          ProjectLoadingStartNotification.type, event.data.project.projectName);
+        break;
+      case ts.server.ProjectLoadingFinishEvent:
+        this.connection.sendNotification(
+          ProjectLoadingFinishNotification.type, event.data.project.projectName);
+        break;
+      case ts.server.ProjectsUpdatedInBackgroundEvent:
+        this.refreshDiagnostics(event.data.openFiles);
+        break;
+    }
+
     if (event.eventName !== ts.server.ProjectsUpdatedInBackgroundEvent) {
       return;
     }
+
+  }
+
+  private refreshDiagnostics(openFiles: string[]) {
     // ProjectsUpdatedInBackgroundEvent is sent whenever diagnostics are requested
     // via project.refreshDiagnostics()
-    const {openFiles} = event.data;
     for (const fileName of openFiles) {
       const scriptInfo = this.tsProjSvc.getScriptInfo(fileName);
       if (!scriptInfo) {
