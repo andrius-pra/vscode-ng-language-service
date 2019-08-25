@@ -11,7 +11,7 @@
     "@types/jasmine": "^3.3.13",
     "@types/node": "^12.0.12",
     "jasmine": "^3.4.0",
-    "typescript": "^3.4.5",
+    "typescript": "https://npmpackages.blob.core.windows.net/andrius-pra/typescript-3.6.1-experimental-plugin-external-files.20190825.tgz",
     "vscode-jsonrpc": "~4.0.0"
   }
 }

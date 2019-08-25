@@ -50,7 +50,7 @@
   "devDependencies": {
     "@types/node": "^10.14.13",
     "tslint": "^5.18.0",
-    "typescript": "~3.5.3",
+    "typescript": "https://npmpackages.blob.core.windows.net/andrius-pra/typescript-3.6.1-experimental-plugin-external-files.20190825.tgz",
     "vsce": "^1.66.0"
   },
   "repository": {
