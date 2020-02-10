@@ -8,6 +8,7 @@
 
 import * as ts from 'typescript/lib/tsserverlibrary';
 import * as lsp from 'vscode-languageserver';
+import {CompletionItemKind, DocumentHighlightKind, InsertTextFormat} from 'vscode-languageserver';
 
 import {tsTextSpanToLspRange} from './utils';
 
@@ -25,6 +26,7 @@ enum CompletionKind {
   reference = 'reference',
   variable = 'variable',
   entity = 'entity',
+  color = 'color'
 }
 
 /**
@@ -50,7 +52,8 @@ function ngCompletionKindToLspCompletionItemKind(kind: CompletionKind): lsp.Comp
     case CompletionKind.reference:
     case CompletionKind.variable:
       return lsp.CompletionItemKind.Variable;
-    case CompletionKind.entity:
+    case CompletionKind.color:
+      return lsp.CompletionItemKind.Color;
     default:
       return lsp.CompletionItemKind.Text;
   }
@@ -74,6 +77,7 @@ export function tsCompletionEntryToLspCompletionItem(
   item.kind = ngCompletionKindToLspCompletionItemKind(kind);
   item.detail = entry.kind;
   item.sortText = entry.sortText;
+  item.insertTextFormat = InsertTextFormat.Snippet;
   // Text that actually gets inserted to the document. It could be different
   // from 'entry.name'. For example, a method name could be 'greet', but the
   // insertText is 'greet()'.
@@ -82,4 +86,9 @@ export function tsCompletionEntryToLspCompletionItem(
       lsp.TextEdit.replace(tsTextSpanToLspRange(scriptInfo, entry.replacementSpan), insertText) :
       lsp.TextEdit.insert(position, insertText);
   return item;
+}
+export function tsCompletionEntryDetailsToLspCompletionItem(
+    lspCompletionItem: lsp.CompletionItem, entry: ts.CompletionEntryDetails): lsp.CompletionItem {
+  lspCompletionItem.documentation = ts.displayPartsToString(entry.documentation);
+  return lspCompletionItem;
 }

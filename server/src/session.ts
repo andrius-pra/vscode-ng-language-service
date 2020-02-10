@@ -8,8 +8,9 @@
 
 import * as ts from 'typescript/lib/tsserverlibrary';
 import * as lsp from 'vscode-languageserver';
+import {ConfigurationParams, ConfigurationRequest, Disposable, DocumentHighlightKind, DocumentRangeFormattingRequest, DocumentSelector, TextDocument} from 'vscode-languageserver';
 
-import {tsCompletionEntryToLspCompletionItem} from './completion';
+import {tsCompletionEntryDetailsToLspCompletionItem, tsCompletionEntryToLspCompletionItem} from './completion';
 import {tsDiagnosticToLspDiagnostic} from './diagnostic';
 import {Logger} from './logger';
 import {ProjectService} from './project_service';
@@ -30,7 +31,10 @@ enum LanguageId {
 
 // Empty definition range for files without `scriptInfo`
 const EMPTY_RANGE = lsp.Range.create(0, 0, 0, 0);
-
+class Settings {
+  html: any;
+  css: any;
+};
 /**
  * Session is a wrapper around lsp.IConnection, with all the necessary protocol
  * handlers installed for Angular language service.
@@ -40,7 +44,12 @@ export class Session {
   private readonly projectService: ProjectService;
   private diagnosticsTimeout: NodeJS.Timeout|null = null;
   private isProjectLoading = false;
-
+  private scopedSettingsSupport = false;
+  private globalSettings: Settings = {css: {}, html: {}};
+  private documentSettings: {[key: string]: Thenable<Settings>} = {};
+  private dynamicFormatterRegistration = false;
+  private formatterRegistration: Promise<Disposable>|null = null;
+  private clientSnippetSupport = false;
   constructor(options: SessionOptions) {
     // Create a connection for the server. The connection uses Node's IPC as a transport.
     this.connection = lsp.createConnection();
@@ -54,7 +63,7 @@ export class Session {
       typingsInstaller: ts.server.nullTypingsInstaller,
       suppressDiagnosticEvents: false,
       eventHandler: (e) => this.handleProjectServiceEvent(e),
-      globalPlugins: ['@angular/language-service'],
+      globalPlugins: ['@angular/language-service', '@angular/embedded-language-services'],
       pluginProbeLocations: [options.ngProbeLocation],
       allowLocalPluginLoads: false,  // do not load plugins from tsconfig.json
     });
@@ -69,6 +78,12 @@ export class Session {
     conn.onDefinition(p => this.onDefinition(p));
     conn.onHover(p => this.onHover(p));
     conn.onCompletion(p => this.onCompletion(p));
+    conn.onCompletionResolve(p => this.onCompletionResolve(p));
+    conn.onDocumentHighlight(p => this.onDocumentHighlight(p));
+    conn.onDocumentFormatting(p => this.onDocumentFormatting(p));
+    conn.onDocumentRangeFormatting(p => this.onDocumentRangeFormatting(p));
+    conn.onFoldingRanges(p => this.onFoldingRanges(p));
+    conn.onDidChangeConfiguration(p => this.onDidChangeConfiguration(p));
   }
 
   /**
@@ -149,21 +164,92 @@ export class Session {
     }
   }
 
+  private getClientCapability<T>(params: lsp.InitializeParams, name: string, def: T) {
+    const keys = name.split('.');
+    let c: any = params.capabilities;
+    for (let i = 0; c && i < keys.length; i++) {
+      if (!c.hasOwnProperty(keys[i])) {
+        return def;
+      }
+      c = c[keys[i]];
+    }
+    return c;
+  }
+
   private onInitialize(params: lsp.InitializeParams): lsp.InitializeResult {
+    this.clientSnippetSupport = this.getClientCapability(
+        params, 'textDocument.completion.completionItem.snippetSupport', false);
+    this.dynamicFormatterRegistration =
+        this.getClientCapability(params, 'textDocument.rangeFormatting.dynamicRegistration', false);
+    // this.getClientCapability(
+    //     params, 'textDocument.rangeFormatting.dynamicRegistration', false) &&
+    // (typeof params.initializationOptions.provideFormatter !== 'boolean');
+    this.scopedSettingsSupport = this.getClientCapability(params, 'workspace.configuration', false);
     return {
       capabilities: {
         textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
         completionProvider: {
           // The server does not provide support to resolve additional information
           // for a completion item.
-          resolveProvider: false,
-          triggerCharacters: ['<', '.', '*', '[', '(', '$']
+          resolveProvider: true,
+          triggerCharacters:
+              ['<', '.', '*', '[', '(', '$', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
         },
         definitionProvider: true,
         hoverProvider: true,
+        documentHighlightProvider: true,
+        renameProvider: true,
+        foldingRangeProvider: true,
+        documentFormattingProvider: true,
+        documentRangeFormattingProvider: true
       },
     };
   }
+
+
+  private onDidChangeConfiguration(change: lsp.DidChangeConfigurationParams): void {
+    this.globalSettings = change.settings;
+    this.documentSettings = {};  // reset all document settings
+
+
+    // dynamically enable & disable the formatter
+    if (this.dynamicFormatterRegistration) {
+      const enableFormatter = this.globalSettings && this.globalSettings.html &&
+          this.globalSettings.html.format && this.globalSettings.html.format.enable;
+      if (enableFormatter) {
+        if (!this.formatterRegistration) {
+          const documentSelector: DocumentSelector = [{language: 'typescript'}];
+          this.formatterRegistration = this.connection.client.register(
+              DocumentRangeFormattingRequest.type, {documentSelector});
+        }
+      } else if (this.formatterRegistration) {
+        this.formatterRegistration.then(r => r.dispose());
+        this.formatterRegistration = null;
+      }
+    }
+  }
+
+  private getDocumentSettings(textDocument: TextDocument, needsDocumentSettings: () => boolean):
+      Thenable<Settings|undefined> {
+    if (this.scopedSettingsSupport && needsDocumentSettings()) {
+      let promise = this.documentSettings[textDocument.uri];
+      if (!promise) {
+        const scopeUri = textDocument.uri;
+        const configRequestParam: ConfigurationParams = {
+          items: [
+            {scopeUri, section: 'css'}, {scopeUri, section: 'html'},
+            {scopeUri, section: 'javascript'}
+          ]
+        };
+        promise = this.connection.sendRequest(ConfigurationRequest.type, configRequestParam)
+                      .then(s => ({css: s[0], html: s[1], javascript: s[2]}));
+        this.documentSettings[textDocument.uri] = promise;
+      }
+      return promise;
+    }
+    return Promise.resolve(undefined);
+  }
+
 
   private onDidOpenTextDocument(params: lsp.DidOpenTextDocumentParams) {
     const {uri, languageId} = params.textDocument;
@@ -349,6 +435,9 @@ export class Session {
     };
   }
 
+  private _completions: lsp.CompletionItem[] = [];
+  private _position?: lsp.Position;
+  private _uri?: string;
   private onCompletion(params: lsp.CompletionParams) {
     const {position, textDocument} = params;
     const filePath = uriToFilePath(textDocument.uri);
@@ -373,8 +462,177 @@ export class Session {
     if (!completions) {
       return;
     }
-    return completions.entries.map(
+    this._completions = completions.entries.map(
         (e) => tsCompletionEntryToLspCompletionItem(e, position, scriptInfo));
+    this._uri = textDocument.uri;
+    this._position = position;
+    return this._completions;
+  }
+
+  private onCompletionResolve(params: lsp.CompletionItem): lsp.CompletionItem {
+    const completion =
+        this._completions.find(x => x.label == params.label && x.sortText == params.sortText);
+    if (!this._position || !this._uri || !completion) {
+      return params;
+    }
+
+
+    const filePath = uriToFilePath(this._uri);
+    if (!filePath) {
+      return params;
+    }
+    const scriptInfo = this.projectService.getScriptInfo(filePath);
+    if (!scriptInfo) {
+      return params;
+    }
+    const {fileName} = scriptInfo;
+    const langSvc = this.projectService.getDefaultLanguageService(scriptInfo);
+    if (!langSvc) {
+      return params;
+    }
+    const offset = lspPositionToTsPosition(scriptInfo, this._position);
+    const tsDetails = langSvc.getCompletionEntryDetails(
+        fileName, offset, params.label,
+        {
+            // options
+        },
+        undefined, undefined);
+    if (!tsDetails) {
+      return params;
+    }
+
+    return tsCompletionEntryDetailsToLspCompletionItem(completion, tsDetails);
+  }
+
+
+  private onDocumentRangeFormatting(params: lsp.DocumentRangeFormattingParams): lsp.TextEdit[]|null
+      |undefined {
+    const result: lsp.TextEdit[] = [];
+    const {textDocument, range, options} = params;
+    const filePath = uriToFilePath(textDocument.uri);
+    if (!filePath) {
+      return result;
+    }
+    const scriptInfo = this.projectService.getScriptInfo(filePath);
+    if (!scriptInfo) {
+      return result;
+    }
+    const {fileName} = scriptInfo;
+    const langSvc = this.projectService.getDefaultLanguageService(scriptInfo);
+    if (!langSvc) {
+      return result;
+    }
+    const tsRange = lspRangeToTsPositions(scriptInfo, range);
+    const formattingOptions: ts.FormatCodeOptions|ts.FormatCodeSettings = {
+      tabSize: options.tabSize,
+      ConvertTabsToSpaces: options.insertSpaces
+    };
+    const edits =
+        langSvc.getFormattingEditsForRange(fileName, tsRange[0], tsRange[1], formattingOptions);
+    if (!edits) {
+      return result;
+    }
+
+    for (const tsEdit of edits) {
+      result.push({newText: tsEdit.newText, range: tsTextSpanToLspRange(scriptInfo, tsEdit.span)});
+    }
+    return result;
+  }
+  private onDocumentFormatting(params: lsp.DocumentFormattingParams): lsp.TextEdit[]|null
+      |undefined {
+    const result: lsp.TextEdit[] = [];
+    const {textDocument, options} = params;
+    const filePath = uriToFilePath(textDocument.uri);
+    if (!filePath) {
+      return result;
+    }
+    const scriptInfo = this.projectService.getScriptInfo(filePath);
+    if (!scriptInfo) {
+      return result;
+    }
+    const {fileName} = scriptInfo;
+    const langSvc = this.projectService.getDefaultLanguageService(scriptInfo);
+    if (!langSvc) {
+      return result;
+    }
+
+    const formattingOptions: ts.FormatCodeOptions|ts.FormatCodeSettings = {
+      tabSize: options.tabSize,
+      ConvertTabsToSpaces: options.insertSpaces
+    };
+
+    const length = scriptInfo.getSnapshot().getLength();
+    const edits = langSvc.getFormattingEditsForRange(fileName, 0, length, formattingOptions);
+    if (!edits) {
+      return result;
+    }
+
+    for (const tsEdit of edits) {
+      result.push({newText: tsEdit.newText, range: tsTextSpanToLspRange(scriptInfo, tsEdit.span)});
+    }
+    return result;
+  }
+
+  private onDocumentHighlight(params: lsp.DocumentHighlightParams): lsp.DocumentHighlight[] {
+    const result: lsp.DocumentHighlight[] = [];
+    const {position, textDocument} = params;
+    const filePath = uriToFilePath(textDocument.uri);
+    if (!filePath) {
+      return result;
+    }
+    const scriptInfo = this.projectService.getScriptInfo(filePath);
+    if (!scriptInfo) {
+      return result;
+    }
+    const {fileName} = scriptInfo;
+    const langSvc = this.projectService.getDefaultLanguageService(scriptInfo);
+    if (!langSvc) {
+      return result;
+    }
+    const offset = lspPositionToTsPosition(scriptInfo, position);
+    const completions = langSvc.getDocumentHighlights(fileName, offset, [fileName]) || [];
+    if (!completions) {
+      return result;
+    }
+
+    for (const entriesInFile of completions) {
+      for (const entry of entriesInFile.highlightSpans) {
+        result.push(lsp.DocumentHighlight.create(
+            tsTextSpanToLspRange(scriptInfo, entry.textSpan), DocumentHighlightKind.Text));
+      }
+    }
+    return result;
+  }
+
+  private onFoldingRanges(params: lsp.FoldingRangeRequestParam): lsp.FoldingRange[] {
+    const result: lsp.FoldingRange[] = [];
+    const {textDocument} = params;
+    const filePath = uriToFilePath(textDocument.uri);
+    if (!filePath) {
+      return result;
+    }
+    const scriptInfo = this.projectService.getScriptInfo(filePath);
+    if (!scriptInfo) {
+      return result;
+    }
+    const {fileName} = scriptInfo;
+    const langSvc = this.projectService.getDefaultLanguageService(scriptInfo);
+    if (!langSvc) {
+      return result;
+    }
+    const outliningSpans = langSvc.getOutliningSpans(fileName) || [];
+    if (!outliningSpans) {
+      return result;
+    }
+
+    for (const outliningSpan of outliningSpans) {
+      const start = scriptInfo.positionToLineOffset(outliningSpan.textSpan.start);
+      const end = scriptInfo.positionToLineOffset(
+          outliningSpan.textSpan.start + outliningSpan.textSpan.length);
+      result.push(lsp.FoldingRange.create(
+          start.line - 1, end.line - 1, start.offset - 1, end.offset - 1, outliningSpan.kind));
+    }
+    return result;
   }
 
   /**
@@ -454,6 +712,8 @@ export class Session {
     }
   }
 }
+
+
 
 /**
  * Return true if the specified `project` contains the Angular core declaration.

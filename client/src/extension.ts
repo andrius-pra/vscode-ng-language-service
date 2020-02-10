@@ -36,7 +36,8 @@ export function activate(context: vscode.ExtensionContext) {
       fileEvents: [
         // Notify the server about file changes to tsconfig.json contained in the workspace
         vscode.workspace.createFileSystemWatcher('**/tsconfig.json'),
-      ]
+      ],
+      configurationSection: ['html', 'css', 'javascript', 'angular']
     },
 
     // Don't let our output console pop open
@@ -151,7 +152,7 @@ function getServerOptions(ctx: vscode.ExtensionContext, debug: boolean): lsp.Nod
     // do not lazily evaluate the code so all breakpoints are respected
     '--nolazy',
     // If debugging port is changed, update .vscode/launch.json as well
-    '--inspect=6009',
+    '--inspect-brk=6009',
   ];
 
   return {

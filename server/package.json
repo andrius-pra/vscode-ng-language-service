@@ -8,6 +8,7 @@
     "node": ">=10.9.0 <13.0.0"
   },
   "dependencies": {
+    "@angular/embedded-language-services": "../embedded-language-services",
     "@angular/language-service": "9.0.0",
     "vscode-languageserver": "6.1.0",
     "vscode-uri": "2.1.1"

@@ -10,6 +10,7 @@
   "references": [
     { "path": "./client" },
     { "path": "./server" },
-    { "path": "./syntaxes" }
+    { "path": "./syntaxes" },
+    { "path": "./embedded-language-services" }
   ]
 }

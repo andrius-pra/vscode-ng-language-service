@@ -1,0 +1,21 @@
+{
+    "name": "@angular/embedded-language-services",
+    "description": "",
+    "version": "0.900.11",
+    "main": "out/index.js",
+    "typings": "out/index.d.ts",
+    "author": "Angular",
+    "license": "MIT",
+    "engines": {
+      "node": ">=10.9.0 <13.0.0"
+    },
+    "dependencies": {
+      "vscode-html-languageservice": "^2.1.10",
+      "vscode-css-languageservice": "^4.0.2",
+      "vscode-languageserver-types": "^3.13.0",
+      "vscode-emmet-helper": "^1.2.17"
+    },
+    "devDependencies": {
+      "@types/node": "^13.1.8"
+    }
+}

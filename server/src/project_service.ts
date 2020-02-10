@@ -50,6 +50,60 @@ export class ProjectService {
         angularOnly: true,
       },
     });
+
+    this.tsProjSvc.configurePlugin({
+      pluginName: '@angular/embedded-language-services',
+      configuration: {
+        'options': {
+          'html': {
+            'autoClosingTags': true,
+            'format': {
+              'enable': true,
+              'contentUnformatted': 'pre,code,textarea',
+              'endWithNewline': false,
+              'extraLiners': 'head, body, /html',
+              'indentHandlebars': false,
+              'indentInnerHtml': false,
+              'insertSpaces': true,
+              'maxPreserveNewLines': 2000,
+              'preserveNewLines': null,
+              'tabSize': 4,
+              'unformatted': 'wbr',
+              'wrapAttributes': 'preserve-aligned',
+              'wrapAttributesIndentSize': null,
+              'wrapLineLength': 120,
+            },
+            'suggest': {'html5': true},
+            'validate': {'scripts': false, 'styles': false}
+          },
+          'css': {
+            'completion':
+                {'completePropertyWithSemicolon': true, 'triggerPropertyValueCompletion': true},
+            'lint': {
+              'compatibleVendorPrefixes': 'error',
+              'duplicateProperties': 'error',
+              'emptyRules': 'error',
+              'float': 'error',
+              'fontFaceProperties': 'error',
+              'hexColorLength': 'error',
+              'idSelector': 'error',
+              'ieHack': 'error',
+              'important': 'error',
+              'importStatement': 'error',
+              'propertyIgnoredDueToDisplay': 'error',
+              'universalSelector': 'error',
+              'unknownAtRules': 'error',
+              'unknownProperties': 'error',
+              'unknownVendorSpecificProperties': 'error',
+              'validProperties': 'error',
+              'vendorPrefix': 'error',
+              'zeroUnits': 'error'
+            },
+            'validate': true
+          }
+        }
+      },
+    });
   }
 
   /**

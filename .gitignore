@@ -15,3 +15,4 @@ dist/
 syntaxes/out
 syntaxes/test/*.js
 syntaxes/test/*.map
+embedded-language-services/out/
